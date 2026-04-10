@@ -93,7 +93,28 @@ func isProbablyPrime(n *big.Int, rounds int) bool {
 	return true
 }
 
+func generatePrime(bits int, rounds int) (*big.Int, error) {
+	for {
+		candidate, err := randomNumberGen(bits)
+		if err != nil {
+			return nil, err
+		}
+
+		if isProbablyPrime(candidate, rounds) {
+			return candidate, nil
+		}
+	}
+}
+
 func main() {
-	n, _ := randomNumberGen(6)
-	fmt.Println(n)
+	p, err := generatePrime(6, 20)
+	if err != nil {
+		panic(err)
+	}
+	q, err := generatePrime(6, 20)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("p=", p)
+	fmt.Println("q=", q)
 }
