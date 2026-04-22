@@ -6,6 +6,21 @@ import (
 	"math/big"
 )
 
+type PublicKey struct {
+	N *big.Int // модуль n = p * q
+	E *big.Int // открытая экспонента e (обычно 65537)
+}
+
+type PrivateKey struct {
+	N *big.Int // тот же модуль n
+	D *big.Int // закрытая экспонента d = e^(-1) mod φ(n)
+}
+
+type KeyPair struct {
+	Public  *PublicKey  // открытый ключ
+	Private *PrivateKey // закрытый ключ
+}
+
 // Проверка на четность
 func isEven(n *big.Int) bool {
 	return n.Bit(0) == 0
