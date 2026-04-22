@@ -128,15 +128,80 @@ func generatePrime(bits int, rounds int) (*big.Int, error) {
 	}
 }
 
+func extendedGCD(a, b *big.Int) (g, x, y *big.Int) {
+	// Инициализация: x=0, y=1, x1=1, y1=0
+	x0, y0, x1, y1 := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
+	x1.SetInt64(1) // x1 = 1
+	y0.SetInt64(1) // y0 = 1 (было неявно 0)
+
+	for b.Cmp(big.NewInt(0)) != 0 {
+		q := new(big.Int).Div(a, b) // q = a/b
+		// x2 = x0 - q*x1
+		t := new(big.Int).Mul(q, x1)
+		x2 := new(big.Int).Sub(x0, t)
+		// y2 = y0 - q*y1
+		t = new(big.Int).Mul(q, y1)
+		y2 := new(big.Int).Sub(y0, t)
+
+		// Сдвиг
+		x0, x1 = x1, x2
+		y0, y1 = y1, y2
+		a, b = b, new(big.Int).Mod(a, b)
+	}
+
+	return a, x0, y0 // gcd=a, x=x0, y=y0
+}
+
+func modInverse(e, phi *big.Int) *big.Int {
+	// Возвращает d такое, что e*d ≡ 1 (mod phi)
+	_, x, _ := extendedGCD(e, phi)
+	// x может быть отрицательным → приводим к [0, φ(n))
+	return new(big.Int).Mod(x, phi)
+}
+
+func generateKeyPair() (*PublicKey, *PrivateKey, error) {
+	p, err := generatePrime(DefaultKeyBits/2, MillerRabinRounds) //DefaultKeyBits/2 чтобы выровнять нагрузку
+	if err != nil {
+		return nil, nil, err
+	}
+	q, err := generatePrime(DefaultKeyBits/2, MillerRabinRounds)
+	if err != nil {
+		return nil, nil, err
+	}
+	for {
+		if q == p {
+			q, err = generatePrime(DefaultKeyBits/2, MillerRabinRounds)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			break
+		}
+	}
+	n := new(big.Int).Mul(p, q)
+	phi := new(big.Int).Mul( //расчёт значения функции Эйлера
+		new(big.Int).Sub(p, big.NewInt(1)),
+		new(big.Int).Sub(q, big.NewInt(1)),
+	)
+	if new(big.Int).GCD(nil, nil, DefaultE, phi).Cmp(big.NewInt(1)) != 0 { //если нет взаимной простоты, делаем перегенерацию
+		// 1/65537 шанс — просто перегенерировать p, q (2 секунды)
+		return generateKeyPair()
+	}
+	d := modInverse(DefaultE, phi) //Экспонента расшифрования
+	return &PublicKey{E: DefaultE, N: n}, &PrivateKey{D: d, N: n}, nil
+}
+
 func main() {
-	p, err := generatePrime(6, 20)
+	fmt.Println("RSA Key Generator")
+	fmt.Printf("Key size: %d bits\n", DefaultKeyBits)
+
+	pub, priv, err := generateKeyPair()
 	if err != nil {
-		panic(err)
+		fmt.Printf("Error: %v\n", err)
+		return
 	}
-	q, err := generatePrime(6, 20)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("p=", p)
-	fmt.Println("q=", q)
+	fmt.Printf("Открытый ключ:\n  e = %s\n  n = %s\n",
+		pub.E.String(), pub.N.String())
+	fmt.Printf("Закрытый ключ:\n  d = %s\n  n = %s\n",
+		priv.D.String(), priv.N.String())
 }
