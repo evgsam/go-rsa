@@ -21,10 +21,17 @@ type KeyPair struct {
 	Private *PrivateKey // закрытый ключ
 }
 
+var DefaultE = big.NewInt(65537) //Экспонента зашифрования по дефолту
+
 // Проверка на четность
 func isEven(n *big.Int) bool {
 	return n.Bit(0) == 0
 }
+
+const (
+	MillerRabinRounds = 20
+	DefaultKeyBits    = 12
+)
 
 // --------------------------
 // генерирайция случайного нечетного числа точно заданной битности для использования в качестве кандидата на простое число в RSA.
