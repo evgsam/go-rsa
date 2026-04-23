@@ -10,8 +10,11 @@ type PublicKey struct {
 
 // PrivateKey представляет закрытый ключ RSA
 type PrivateKey struct {
-	N *big.Int // тот же модуль n
-	D *big.Int // закрытая экспонента d = e^(-1) mod φ(n)
+	N *big.Int
+	D *big.Int
+	P *big.Int
+	Q *big.Int
+	E *big.Int
 }
 
 // KeyPair представляет пару ключей RSA

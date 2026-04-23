@@ -63,5 +63,20 @@ func GenerateKeyPair(bits int) (*PublicKey, *PrivateKey, error) {
 	}
 
 	d := new(big.Int).Mod(extendedEvklid(DefaultE, phi), phi)
-	return &PublicKey{E: DefaultE, N: n}, &PrivateKey{D: d, N: n}, nil
+
+	pub := &PublicKey{
+		E: new(big.Int).Set(DefaultE),
+		N: new(big.Int).Set(n),
+	}
+
+	priv := &PrivateKey{
+		N: new(big.Int).Set(n),
+		D: new(big.Int).Set(d),
+		P: new(big.Int).Set(p),
+		Q: new(big.Int).Set(q),
+		E: new(big.Int).Set(DefaultE),
+	}
+
+	return pub, priv, nil
+
 }
