@@ -30,7 +30,7 @@ func isEven(n *big.Int) bool {
 
 const (
 	MillerRabinRounds = 20
-	DefaultKeyBits    = 12
+	DefaultKeyBits    = 2048
 )
 
 // --------------------------
@@ -180,9 +180,27 @@ func generateKeyPair() (*PublicKey, *PrivateKey, error) {
 	return &PublicKey{E: DefaultE, N: n}, &PrivateKey{D: d, N: n}, nil
 }
 
+func encrypt(pub *PublicKey, message *big.Int) *big.Int {
+	if message.Cmp(pub.N) >= 0 {
+		panic("Сообщение слишком большое! M < n")
+	}
+	return new(big.Int).Exp(message, pub.E, pub.N)
+}
+
+func decrypt(priv *PrivateKey, ciphertext *big.Int) *big.Int {
+	return new(big.Int).Exp(ciphertext, priv.D, priv.N)
+}
+
+func stringToBigInt(s string) *big.Int {
+	return new(big.Int).SetBytes([]byte(s))
+}
+
+func bigIntToString(n *big.Int) string {
+	return string(n.Bytes())
+}
+
 func main() {
-	fmt.Println("RSA Key Generator")
-	fmt.Printf("Key size: %d bits\n", DefaultKeyBits)
+	fmt.Printf("Размер RSA ключа: %d bits\n", DefaultKeyBits)
 
 	pub, priv, err := generateKeyPair()
 	if err != nil {
@@ -193,4 +211,23 @@ func main() {
 		pub.E.String(), pub.N.String())
 	fmt.Printf("Закрытый ключ:\n  d = %s\n  n = %s\n",
 		priv.D.String(), priv.N.String())
+
+	message := stringToBigInt("Test")
+	fmt.Printf("Сообщение: '%s'\n", bigIntToString(message))
+
+	// Шифрование
+	ciphertext := encrypt(pub, message)
+	fmt.Printf("Шифротекст: %s\n", ciphertext.String())
+
+	// Расшифрование
+	decrypted := decrypt(priv, ciphertext)
+	fmt.Printf("Расшифровано: '%s'\n", bigIntToString(decrypted))
+
+	// Проверка
+	if message.Cmp(decrypted) == 0 {
+		fmt.Println("работает")
+	} else {
+		fmt.Println("ошибка")
+	}
+
 }
