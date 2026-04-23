@@ -90,3 +90,20 @@ func loadPrivateKey(filename string) (*PrivateKey, error) {
 		E: big.NewInt(int64(rsaPriv.E)),
 	}, nil
 }
+
+func readTextFile(filename string) (string, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func writeTextFile(filename, text string) error {
+	return os.WriteFile(filename, []byte(text), 0644)
+}
+
+func writeCiphertextFile(filename string, c *big.Int) error {
+	hexText := c.Text(16)
+	return os.WriteFile(filename, []byte(hexText), 0644)
+}

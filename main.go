@@ -13,11 +13,12 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
-		fmt.Println("\n RSA CLI")
 		fmt.Println("1. Сгенерировать ключевую пару")
-		fmt.Println("2. Зашифровать сообщение")
-		fmt.Println("3. Расшифровать сообщение")
-		fmt.Println("4. Выход")
+		fmt.Println("2. Зашифровать сообщение из командной строки")
+		fmt.Println("3. Расшифровать сообщение из командной строки")
+		fmt.Println("4. Зашифровать файл")
+		//fmt.Println("5. Расшифровать файл")
+		fmt.Println("5. Выход")
 		fmt.Print(">> ")
 
 		if !scanner.Scan() {
@@ -127,6 +128,52 @@ func main() {
 			fmt.Printf("Открытый текст: %s\n", BigIntToString(m))
 
 		case "4":
+			fmt.Print("Введите путь к открытому ключу: ")
+			if !scanner.Scan() {
+				return
+			}
+			pubPath := strings.TrimSpace(scanner.Text())
+
+			pub, err := loadPublicKey(pubPath)
+			if err != nil {
+				fmt.Printf("Ошибка загрузки открытого ключа: %v\n", err)
+				continue
+			}
+
+			fmt.Print("Введите путь к файлу с открытым текстом: ")
+			if !scanner.Scan() {
+				return
+			}
+			inputPath := strings.TrimSpace(scanner.Text())
+
+			text, err := readTextFile(inputPath)
+			if err != nil {
+				fmt.Printf("Ошибка чтения файла: %v\n", err)
+				continue
+			}
+
+			m := StringToBigInt(text)
+			if m.Cmp(pub.N) >= 0 {
+				fmt.Println("Содержимое файла слишком длинное для этого ключа")
+				continue
+			}
+
+			c := Encrypt(pub, m)
+
+			fmt.Print("Введите путь для сохранения шифртекста: ")
+			if !scanner.Scan() {
+				return
+			}
+			outputPath := strings.TrimSpace(scanner.Text())
+
+			if err := writeCiphertextFile(outputPath, c); err != nil {
+				fmt.Printf("Ошибка записи шифртекста: %v\n", err)
+				continue
+			}
+
+			fmt.Println("Шифрование файла выполнено")
+
+		case "5":
 			fmt.Println("Выход.")
 			return
 
