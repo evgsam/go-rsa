@@ -128,35 +128,25 @@ func generatePrime(bits int, rounds int) (*big.Int, error) {
 	}
 }
 
-func extendedGCD(a, b *big.Int) (g, x, y *big.Int) {
-	// Инициализация: x=0, y=1, x1=1, y1=0
+func extendedEvklid(e, phi *big.Int) (x *big.Int) {
 	x0, y0, x1, y1 := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
-	x1.SetInt64(1) // x1 = 1
-	y0.SetInt64(1) // y0 = 1 (было неявно 0)
-
+	x0.SetInt64(1) // x0 = 1
+	x1.SetInt64(0) // x1 = 0
+	y0.SetInt64(0) // y0 = 0
+	y1.SetInt64(1) // y1 = 1
+	a := new(big.Int).Set(e)
+	b := new(big.Int).Set(phi)
 	for b.Cmp(big.NewInt(0)) != 0 {
 		q := new(big.Int).Div(a, b) // q = a/b
-		// x2 = x0 - q*x1
-		t := new(big.Int).Mul(q, x1)
-		x2 := new(big.Int).Sub(x0, t)
-		// y2 = y0 - q*y1
-		t = new(big.Int).Mul(q, y1)
-		y2 := new(big.Int).Sub(y0, t)
-
-		// Сдвиг
+		r := new(big.Int).Mod(a, b)
+		x2 := new(big.Int).Sub(x0, new(big.Int).Mul(q, x1))
+		y2 := new(big.Int).Sub(y0, new(big.Int).Mul(q, y1))
+		a = b
+		b = r
 		x0, x1 = x1, x2
 		y0, y1 = y1, y2
-		a, b = b, new(big.Int).Mod(a, b)
 	}
-
-	return a, x0, y0 // gcd=a, x=x0, y=y0
-}
-
-func modInverse(e, phi *big.Int) *big.Int {
-	// Возвращает d такое, что e*d ≡ 1 (mod phi)
-	_, x, _ := extendedGCD(e, phi)
-	// x может быть отрицательным → приводим к [0, φ(n))
-	return new(big.Int).Mod(x, phi)
+	return new(big.Int).Set(x0)
 }
 
 func generateKeyPair() (*PublicKey, *PrivateKey, error) {
@@ -169,7 +159,7 @@ func generateKeyPair() (*PublicKey, *PrivateKey, error) {
 		return nil, nil, err
 	}
 	for {
-		if q == p {
+		if q.Cmp(p) == 0 {
 			q, err = generatePrime(DefaultKeyBits/2, MillerRabinRounds)
 			if err != nil {
 				return nil, nil, err
@@ -184,10 +174,9 @@ func generateKeyPair() (*PublicKey, *PrivateKey, error) {
 		new(big.Int).Sub(q, big.NewInt(1)),
 	)
 	if new(big.Int).GCD(nil, nil, DefaultE, phi).Cmp(big.NewInt(1)) != 0 { //если нет взаимной простоты, делаем перегенерацию
-		// 1/65537 шанс — просто перегенерировать p, q (2 секунды)
 		return generateKeyPair()
 	}
-	d := modInverse(DefaultE, phi) //Экспонента расшифрования
+	d := new(big.Int).Mod(extendedEvklid(DefaultE, phi), phi)
 	return &PublicKey{E: DefaultE, N: n}, &PrivateKey{D: d, N: n}, nil
 }
 
