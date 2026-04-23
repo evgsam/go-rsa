@@ -7,26 +7,41 @@ import (
 	"strings"
 )
 
-// savePublicKeyHEX сохраняет открытый ключ в hex-формате
-func savePublicKeyHEX(pub *PublicKey, filename string) error {
-	content := fmt.Sprintf("e: %s\nn: %s\n", pub.E.Text(16), pub.N.Text(16))
+func savePublicKey(pub *PublicKey, filename string) error {
+	content := fmt.Sprintf(
+		"-----BEGIN RSA PUBLIC KEY-----\n"+
+			"format: hex\n"+
+			"e: %s\n"+
+			"n: %s\n"+
+			"-----END RSA PUBLIC KEY-----\n",
+		pub.E.Text(16),
+		pub.N.Text(16),
+	)
 	return os.WriteFile(filename, []byte(content), 0644)
 }
 
-// savePrivateKeyHEX сохраняет закрытый ключ в hex-формате
-func savePrivateKeyHEX(priv *PrivateKey, filename string) error {
-	content := fmt.Sprintf("d: %s\nn: %s\n", priv.D.Text(16), priv.N.Text(16))
+func savePrivateKey(priv *PrivateKey, filename string) error {
+	content := fmt.Sprintf(
+		"-----BEGIN RSA PRIVATE KEY-----\n"+
+			"format: hex\n"+
+			"d: %s\n"+
+			"n: %s\n"+
+			"-----END RSA PRIVATE KEY-----\n",
+		priv.D.Text(16),
+		priv.N.Text(16),
+	)
 	return os.WriteFile(filename, []byte(content), 0600)
 }
 
-// loadPublicKeyHEX загружает открытый ключ из hex-формата
-func loadPublicKeyHEX(filename string) (*PublicKey, error) {
+func loadPublicKey(filename string) (*PublicKey, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
+
 	lines := strings.Split(string(data), "\n")
-	eStr, nStr := "", ""
+	var eStr, nStr string
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "e: ") {
@@ -36,21 +51,33 @@ func loadPublicKeyHEX(filename string) (*PublicKey, error) {
 			nStr = strings.TrimPrefix(line, "n: ")
 		}
 	}
-	e := new(big.Int)
-	n := new(big.Int)
-	e.SetString(eStr, 16)
-	n.SetString(nStr, 16)
+
+	if eStr == "" || nStr == "" {
+		return nil, fmt.Errorf("invalid public key file format")
+	}
+
+	e, ok := new(big.Int).SetString(eStr, 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex value for e")
+	}
+
+	n, ok := new(big.Int).SetString(nStr, 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex value for n")
+	}
+
 	return &PublicKey{E: e, N: n}, nil
 }
 
-// loadPrivateKeyHEX загружает закрытый ключ из hex-формата
-func loadPrivateKeyHEX(filename string) (*PrivateKey, error) {
+func loadPrivateKey(filename string) (*PrivateKey, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
+
 	lines := strings.Split(string(data), "\n")
-	dStr, nStr := "", ""
+	var dStr, nStr string
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "d: ") {
@@ -60,34 +87,20 @@ func loadPrivateKeyHEX(filename string) (*PrivateKey, error) {
 			nStr = strings.TrimPrefix(line, "n: ")
 		}
 	}
-	d := new(big.Int)
-	n := new(big.Int)
-	d.SetString(dStr, 16)
-	n.SetString(nStr, 16)
+
+	if dStr == "" || nStr == "" {
+		return nil, fmt.Errorf("invalid private key file format")
+	}
+
+	d, ok := new(big.Int).SetString(dStr, 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex value for d")
+	}
+
+	n, ok := new(big.Int).SetString(nStr, 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex value for n")
+	}
+
 	return &PrivateKey{D: d, N: n}, nil
-}
-
-// saveCiphertextHEX сохраняет шифротекст в hex-формате
-func saveCiphertextHEX(ciphertext *big.Int, filename string) error {
-	content := fmt.Sprintf("ciphertext: %s\n", ciphertext.Text(16))
-	return os.WriteFile(filename, []byte(content), 0644)
-}
-
-// loadCiphertextHEX загружает шифротекст из hex-формата
-func loadCiphertextHEX(filename string) (*big.Int, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(string(data), "\n")
-	cStr := ""
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "ciphertext: ") {
-			cStr = strings.TrimPrefix(line, "ciphertext: ")
-		}
-	}
-	c := new(big.Int)
-	c.SetString(cStr, 16)
-	return c, nil
 }

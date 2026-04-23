@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -33,30 +34,30 @@ func main() {
 			bitsStr := strings.TrimSpace(scanner.Text())
 			bits, err := strconv.Atoi(bitsStr)
 			if err != nil || bits < 32 {
-				fmt.Println("❌ Некорректная длина ключа")
+				fmt.Println("Некорректная длина ключа")
 				continue
 			}
 
 			fmt.Println("Генерация ключей...")
 			pub, priv, err := GenerateKeyPair(bits)
 			if err != nil {
-				fmt.Printf("❌ Ошибка генерации: %v\n", err)
+				fmt.Printf("Ошибка генерации: %v\n", err)
 				continue
 			}
 
-			pubPath := fmt.Sprintf("rsa-%d-pub.hex", bits)
-			privPath := fmt.Sprintf("rsa-%d-priv.hex", bits)
+			pubPath := fmt.Sprintf("rsa-%d.pub", bits)
+			privPath := fmt.Sprintf("rsa-%d.pem", bits)
 
-			if err := savePublicKeyHEX(pub, pubPath); err != nil {
-				fmt.Printf("❌ Ошибка сохранения открытого ключа: %v\n", err)
+			if err := savePublicKey(pub, pubPath); err != nil {
+				fmt.Printf("Ошибка сохранения открытого ключа: %v\n", err)
 				continue
 			}
-			if err := savePrivateKeyHEX(priv, privPath); err != nil {
-				fmt.Printf("❌ Ошибка сохранения закрытого ключа: %v\n", err)
+			if err := savePrivateKey(priv, privPath); err != nil {
+				fmt.Printf("Ошибка сохранения закрытого ключа: %v\n", err)
 				continue
 			}
 
-			fmt.Println("✅ Ключевая пара создана")
+			fmt.Println("Ключевая пара создана")
 			fmt.Printf("Открытый ключ: %s\n", pubPath)
 			fmt.Printf("Закрытый ключ: %s\n", privPath)
 
@@ -67,15 +68,15 @@ func main() {
 			}
 			pubPath := strings.TrimSpace(scanner.Text())
 
-			pub, err := loadPublicKeyHEX(pubPath)
+			pub, err := loadPublicKey(pubPath)
 			if err != nil {
-				fmt.Printf("❌ Ошибка загрузки открытого ключа: %v\n", err)
+				fmt.Printf("Ошибка загрузки открытого ключа: %v\n", err)
 				continue
 			}
 
 			maxBytes := (pub.N.BitLen() / 8) - 1
 			if maxBytes <= 0 {
-				fmt.Println("❌ Некорректный ключ")
+				fmt.Println("Некорректный ключ")
 				continue
 			}
 
@@ -87,20 +88,13 @@ func main() {
 
 			m := StringToBigInt(msg)
 			if m.Cmp(pub.N) >= 0 {
-				fmt.Println("❌ Сообщение слишком длинное для этого ключа")
+				fmt.Println("Сообщение слишком длинное для этого ключа")
 				continue
 			}
 
 			c := Encrypt(pub, m)
-			fmt.Println("✅ Шифрование выполнено")
+			fmt.Println("Шифрование выполнено")
 			fmt.Printf("Шифротекст (hex): %s\n", c.Text(16))
-
-			ctPath := fmt.Sprintf("ciphertext-%d.hex", pub.N.BitLen())
-			if err := saveCiphertextHEX(c, ctPath); err != nil {
-				fmt.Printf("❌ Ошибка сохранения шифротекста: %v\n", err)
-				continue
-			}
-			fmt.Printf("Шифротекст сохранён: %s\n", ctPath)
 
 		case "3":
 			fmt.Print("Введите путь к закрытому ключу: ")
@@ -109,26 +103,27 @@ func main() {
 			}
 			privPath := strings.TrimSpace(scanner.Text())
 
-			priv, err := loadPrivateKeyHEX(privPath)
+			priv, err := loadPrivateKey(privPath)
 			if err != nil {
-				fmt.Printf("❌ Ошибка загрузки закрытого ключа: %v\n", err)
+				fmt.Printf("Ошибка загрузки закрытого ключа: %v\n", err)
 				continue
 			}
 
-			fmt.Print("Введите путь к шифротексту (hex): ")
+			fmt.Print("Введите шифротекст (hex): ")
 			if !scanner.Scan() {
 				return
 			}
-			ctPath := strings.TrimSpace(scanner.Text())
+			ctHex := strings.TrimSpace(scanner.Text())
 
-			c, err := loadCiphertextHEX(ctPath)
-			if err != nil {
-				fmt.Printf("❌ Ошибка загрузки шифротекста: %v\n", err)
+			c := new(big.Int)
+			c.SetString(ctHex, 16)
+			if c == nil {
+				fmt.Println("Шифротекст должен быть числом в hex-формате")
 				continue
 			}
 
 			m := Decrypt(priv, c)
-			fmt.Println("✅ Расшифрование выполнено")
+			fmt.Println("Расшифрование выполнено")
 			fmt.Printf("Открытый текст: %s\n", BigIntToString(m))
 
 		case "4":
@@ -136,7 +131,7 @@ func main() {
 			return
 
 		default:
-			fmt.Println("❌ Неверный пункт меню")
+			fmt.Println("Неверный пункт меню")
 		}
 	}
 }
