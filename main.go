@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
+	"strings"
 )
 
 type PublicKey struct {
@@ -149,18 +153,18 @@ func extendedEvklid(e, phi *big.Int) (x *big.Int) {
 	return new(big.Int).Set(x0)
 }
 
-func generateKeyPair() (*PublicKey, *PrivateKey, error) {
-	p, err := generatePrime(DefaultKeyBits/2, MillerRabinRounds) //DefaultKeyBits/2 чтобы выровнять нагрузку
+func generateKeyPair(bits int) (*PublicKey, *PrivateKey, error) {
+	p, err := generatePrime(bits/2, MillerRabinRounds) //bits/2 чтобы выровнять нагрузку
 	if err != nil {
 		return nil, nil, err
 	}
-	q, err := generatePrime(DefaultKeyBits/2, MillerRabinRounds)
+	q, err := generatePrime(bits/2, MillerRabinRounds)
 	if err != nil {
 		return nil, nil, err
 	}
 	for {
 		if q.Cmp(p) == 0 {
-			q, err = generatePrime(DefaultKeyBits/2, MillerRabinRounds)
+			q, err = generatePrime(bits/2, MillerRabinRounds)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -174,7 +178,7 @@ func generateKeyPair() (*PublicKey, *PrivateKey, error) {
 		new(big.Int).Sub(q, big.NewInt(1)),
 	)
 	if new(big.Int).GCD(nil, nil, DefaultE, phi).Cmp(big.NewInt(1)) != 0 { //если нет взаимной простоты, делаем перегенерацию
-		return generateKeyPair()
+		return generateKeyPair(bits)
 	}
 	d := new(big.Int).Mod(extendedEvklid(DefaultE, phi), phi)
 	return &PublicKey{E: DefaultE, N: n}, &PrivateKey{D: d, N: n}, nil
@@ -182,7 +186,7 @@ func generateKeyPair() (*PublicKey, *PrivateKey, error) {
 
 func encrypt(pub *PublicKey, message *big.Int) *big.Int {
 	if message.Cmp(pub.N) >= 0 {
-		panic("Сообщение слишком большое! M < n")
+		panic("Сообщение слишком длинное!")
 	}
 	return new(big.Int).Exp(message, pub.E, pub.N)
 }
@@ -200,34 +204,78 @@ func bigIntToString(n *big.Int) string {
 }
 
 func main() {
-	fmt.Printf("Размер RSA ключа: %d bits\n", DefaultKeyBits)
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println("RSA Интерактивная консоль")
+	fmt.Println("============================")
 
-	pub, priv, err := generateKeyPair()
+	// 1. Выбор размера ключа
+	fmt.Print("Введите размер ключа в битах: ")
+	scanner.Scan()
+	bitsStr := strings.TrimSpace(scanner.Text())
+	bits, _ := strconv.Atoi(bitsStr)
+
+	// 2. Генерация ключей
+	fmt.Printf("Генерирую ключи (%d бит)...\n", bits)
+	pub, priv, err := generateKeyPair(bits)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Ошибка: %v\n", err)
 		return
 	}
-	fmt.Printf("Открытый ключ:\n  e = %s\n  n = %s\n",
-		pub.E.String(), pub.N.String())
-	fmt.Printf("Закрытый ключ:\n  d = %s\n  n = %s\n",
-		priv.D.String(), priv.N.String())
 
-	message := stringToBigInt("Test")
-	fmt.Printf("Сообщение: '%s'\n", bigIntToString(message))
+	fmt.Println("\n Ключи созданы успешно!")
+	fmt.Printf("Открытый:  e=%s, n=%s\n", pub.E.String(), pub.N.String())
+	fmt.Printf("Закрытый:  d=%s\n", priv.D.String())
+	fmt.Println()
 
-	// Шифрование
-	ciphertext := encrypt(pub, message)
-	fmt.Printf("Шифротекст: %s\n", ciphertext.String())
+	for {
+		// 3. Меню
+		fmt.Println("Выберите действие:")
+		fmt.Println("1. Зашифровать сообщение")
+		fmt.Println("2. Расшифровать сообщение")
+		fmt.Println("3. Выход")
+		fmt.Print(">> ")
 
-	// Расшифрование
-	decrypted := decrypt(priv, ciphertext)
-	fmt.Printf("Расшифровано: '%s'\n", bigIntToString(decrypted))
+		scanner.Scan()
+		choice := strings.TrimSpace(scanner.Text())
 
-	// Проверка
-	if message.Cmp(decrypted) == 0 {
-		fmt.Println("работает")
-	} else {
-		fmt.Println("ошибка")
+		switch choice {
+		case "1":
+			fmt.Print("Введите сообщение (короткое, max " + strconv.Itoa((pub.N.BitLen()/8)-1) + " байт): ")
+			scanner.Scan()
+			msg := strings.TrimSpace(scanner.Text())
+
+			message := stringToBigInt(msg)
+			if message.Cmp(pub.N) >= 0 {
+				fmt.Println("Сообщение слишком длинное!")
+				continue
+			}
+
+			ciphertext := encrypt(pub, message)
+			fmt.Printf("Шифротекст: %s\n", ciphertext.String())
+			fmt.Printf("Оригинал:   '%s'\n", msg)
+
+		case "2":
+			fmt.Print("Введите шифротекст (число): ")
+			scanner.Scan()
+			ctStr := strings.TrimSpace(scanner.Text())
+
+			ciphertext, _ := new(big.Int).SetString(ctStr, 10)
+			if ciphertext == nil {
+				fmt.Println("Неверный шифротекст!")
+				continue
+			}
+
+			decrypted := decrypt(priv, ciphertext)
+			msg := bigIntToString(decrypted)
+			fmt.Printf("Расшифровано: '%s'\n", msg)
+			fmt.Printf("Число:        %s\n", decrypted.String())
+
+		case "3":
+			return
+
+		default:
+			fmt.Println("Неверный выбор")
+		}
+		fmt.Println()
 	}
-
 }
