@@ -4,33 +4,41 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strings"
 )
 
 func savePublicKey(pub *PublicKey, filename string) error {
-	content := fmt.Sprintf(
-		"-----BEGIN RSA PUBLIC KEY-----\n"+
-			"format: hex\n"+
-			"e: %s\n"+
-			"n: %s\n"+
-			"-----END RSA PUBLIC KEY-----\n",
-		pub.E.Text(16),
-		pub.N.Text(16),
-	)
-	return os.WriteFile(filename, []byte(content), 0644)
+	rsaPub := &rsa.PublicKey{
+		N: pub.N,
+		E: int(pub.E.Int64()),
+	}
+
+	block := &pem.Block{
+		Type:  "RSA PUBLIC KEY",
+		Bytes: x509.MarshalPKCS1PublicKey(rsaPub),
+	}
+
+	return os.WriteFile(filename, pem.EncodeToMemory(block), 0644)
 }
 
 func savePrivateKey(priv *PrivateKey, filename string) error {
-	content := fmt.Sprintf(
-		"-----BEGIN RSA PRIVATE KEY-----\n"+
-			"format: hex\n"+
-			"d: %s\n"+
-			"n: %s\n"+
-			"-----END RSA PRIVATE KEY-----\n",
-		priv.D.Text(16),
-		priv.N.Text(16),
-	)
-	return os.WriteFile(filename, []byte(content), 0600)
+	rsaPriv := &rsa.PrivateKey{
+		PublicKey: rsa.PublicKey{
+			N: priv.N,
+			E: int(priv.E.Int64()),
+		},
+		D:      priv.D,
+		Primes: []*big.Int{priv.P, priv.Q},
+	}
+
+	if err := rsaPriv.Validate(); err != nil {
+		return err
+	}
+
+	block := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(rsaPriv),
+	}
+	return os.WriteFile(filename, pem.EncodeToMemory(block), 0600)
 }
 
 func loadPublicKey(filename string) (*PublicKey, error) {
@@ -39,34 +47,20 @@ func loadPublicKey(filename string) (*PublicKey, error) {
 		return nil, err
 	}
 
-	lines := strings.Split(string(data), "\n")
-	var eStr, nStr string
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "e: ") {
-			eStr = strings.TrimPrefix(line, "e: ")
-		}
-		if strings.HasPrefix(line, "n: ") {
-			nStr = strings.TrimPrefix(line, "n: ")
-		}
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "RSA PUBLIC KEY" {
+		return nil, fmt.Errorf("invalid PEM public key")
 	}
 
-	if eStr == "" || nStr == "" {
-		return nil, fmt.Errorf("invalid public key file format")
+	rsaPub, err := x509.ParsePKCS1PublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
 	}
 
-	e, ok := new(big.Int).SetString(eStr, 16)
-	if !ok {
-		return nil, fmt.Errorf("invalid hex value for e")
-	}
-
-	n, ok := new(big.Int).SetString(nStr, 16)
-	if !ok {
-		return nil, fmt.Errorf("invalid hex value for n")
-	}
-
-	return &PublicKey{E: e, N: n}, nil
+	return &PublicKey{
+		N: rsaPub.N,
+		E: big.NewInt(int64(rsaPub.E)),
+	}, nil
 }
 
 func loadPrivateKey(filename string) (*PrivateKey, error) {
@@ -75,32 +69,21 @@ func loadPrivateKey(filename string) (*PrivateKey, error) {
 		return nil, err
 	}
 
-	lines := strings.Split(string(data), "\n")
-	var dStr, nStr string
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "d: ") {
-			dStr = strings.TrimPrefix(line, "d: ")
-		}
-		if strings.HasPrefix(line, "n: ") {
-			nStr = strings.TrimPrefix(line, "n: ")
-		}
+	block, _ := pem.Decode(data)
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return nil, fmt.Errorf("invalid PEM private key")
 	}
 
-	if dStr == "" || nStr == "" {
-		return nil, fmt.Errorf("invalid private key file format")
+	rsaPriv, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
 	}
 
-	d, ok := new(big.Int).SetString(dStr, 16)
-	if !ok {
-		return nil, fmt.Errorf("invalid hex value for d")
-	}
-
-	n, ok := new(big.Int).SetString(nStr, 16)
-	if !ok {
-		return nil, fmt.Errorf("invalid hex value for n")
-	}
-
-	return &PrivateKey{D: d, N: n}, nil
+	return &PrivateKey{
+		N: rsaPriv.N,
+		D: rsaPriv.D,
+		P: rsaPriv.Primes[0],
+		Q: rsaPriv.Primes[1],
+		E: big.NewInt(int64(rsaPriv.E)),
+	}, nil
 }
