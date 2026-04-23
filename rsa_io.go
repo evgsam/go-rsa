@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 )
 
 func savePublicKey(pub *PublicKey, filename string) error {
@@ -106,4 +107,24 @@ func writeTextFile(filename, text string) error {
 func writeCiphertextFile(filename string, c *big.Int) error {
 	hexText := c.Text(16)
 	return os.WriteFile(filename, []byte(hexText), 0644)
+}
+
+func readCiphertextFile(filename string) (*big.Int, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	s := strings.TrimSpace(string(data))
+	if s == "" {
+		return nil, fmt.Errorf("empty ciphertext file")
+	}
+
+	c := new(big.Int)
+	_, ok := c.SetString(s, 16)
+	if !ok {
+		return nil, fmt.Errorf("invalid hex ciphertext")
+	}
+
+	return c, nil
 }

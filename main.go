@@ -17,8 +17,8 @@ func main() {
 		fmt.Println("2. Зашифровать сообщение из командной строки")
 		fmt.Println("3. Расшифровать сообщение из командной строки")
 		fmt.Println("4. Зашифровать файл")
-		//fmt.Println("5. Расшифровать файл")
-		fmt.Println("5. Выход")
+		fmt.Println("5. Расшифровать файл")
+		fmt.Println("6. Выход")
 		fmt.Print(">> ")
 
 		if !scanner.Scan() {
@@ -172,8 +172,48 @@ func main() {
 			}
 
 			fmt.Println("Шифрование файла выполнено")
-
 		case "5":
+			fmt.Print("Введите путь к закрытому ключу: ")
+			if !scanner.Scan() {
+				return
+			}
+			privPath := strings.TrimSpace(scanner.Text())
+
+			priv, err := loadPrivateKey(privPath)
+			if err != nil {
+				fmt.Printf("Ошибка загрузки закрытого ключа: %v\n", err)
+				continue
+			}
+
+			fmt.Print("Введите путь к файлу с шифртекстом: ")
+			if !scanner.Scan() {
+				return
+			}
+			inputPath := strings.TrimSpace(scanner.Text())
+
+			c, err := readCiphertextFile(inputPath)
+			if err != nil {
+				fmt.Printf("Ошибка чтения шифртекста: %v\n", err)
+				continue
+			}
+
+			m := Decrypt(priv, c)
+			text := BigIntToString(m)
+
+			fmt.Print("Введите путь для сохранения открытого текста: ")
+			if !scanner.Scan() {
+				return
+			}
+			outputPath := strings.TrimSpace(scanner.Text())
+
+			if err := writeTextFile(outputPath, text); err != nil {
+				fmt.Printf("Ошибка записи открытого текста: %v\n", err)
+				continue
+			}
+
+			fmt.Println("Расшифрование файла выполнено")
+
+		case "6":
 			fmt.Println("Выход.")
 			return
 
