@@ -3,25 +3,22 @@ package main
 import "math/big"
 
 // PublicKey представляет открытый ключ RSA
+// Содержит модуль n и открытую экспоненту e, которые используются для шифрования
 type PublicKey struct {
 	N *big.Int // модуль n = p * q
 	E *big.Int // открытая экспонента e (обычно 65537)
 }
 
 // PrivateKey представляет закрытый ключ RSA
+// Содержит все параметры, необходимые для расшифрования сообщений
 type PrivateKey struct {
-	N *big.Int
-	D *big.Int
-	P *big.Int
-	Q *big.Int
-	E *big.Int
-}
-
-// KeyPair представляет пару ключей RSA
-type KeyPair struct {
-	Public  *PublicKey  // открытый ключ
-	Private *PrivateKey // закрытый ключ
+	N *big.Int // модуль n = p * q
+	D *big.Int // закрытая экспонента d (секретный параметр)
+	P *big.Int // первый простой множитель p
+	Q *big.Int // второй простой множитель q
+	E *big.Int // открытая экспонента e
 }
 
 // DefaultE — экспонента зашифрования по умолчанию
+// Используется стандартное значение 65537 (простое число, обеспечивающее баланс безопасности и скорости)
 var DefaultE = big.NewInt(65537)
